@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Royal Chess — Grandmaster Edition | Play Chess vs AI Bot</title>
+    <meta name="description" content="Play chess online for free against a tactical AI bot, or challenge a friend in local Player vs Player mode. No download required.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♞</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between pb-8">
+
+    <div class="bg-slate-900/80 border-b border-slate-700/50 p-4 shadow-xl backdrop-blur-md">
+        <div class="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-chess-knight text-3xl text-amber-500"></i>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black tracking-widest luxury-title text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-200">ROYAL CHESS</h1>
+                    <p class="text-[10px] tracking-[4px] text-amber-400 font-bold">GRANDMASTER EDITION</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="game-mode" onchange="resetGame()" class="bg-slate-950 text-amber-400 border border-slate-700 font-bold text-xs px-3 py-2 rounded-xl focus:outline-none">
+                    <option value="bot">VS COMPUTER (BOT)</option>
+                    <option value="pvp">PLAYER VS PLAYER</option>
+                </select>
+
+                <div class="bg-slate-950/60 px-4 py-2 rounded-xl border border-slate-800 flex items-center gap-3">
+                    <span class="text-xs font-semibold text-slate-400">TURN:</span>
+                    <span id="turn-indicator" class="px-3 py-0.5 rounded-md text-sm font-bold bg-white text-slate-950 shadow">WHITE</span>
+                </div>
+
+                <button onclick="resetGame()" class="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black px-5 py-2 rounded-xl text-sm transition transform active:scale-95 shadow-lg shadow-amber-500/10">
+                    <i class="fas fa-rotate-left mr-1"></i> RESTART
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start my-auto">
+        
+        <div class="lg:col-span-2 flex justify-center">
+            <div id="board" class="chess-board w-full max-w-[560px] aspect-square rounded-xl overflow-hidden relative">
+            </div>
+        </div>
+
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 h-[560px] flex flex-col justify-between shadow-2xl">
+            <div>
+                <h3 class="font-bold text-sm text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <i class="fas fa-list-ol"></i> Match History Log
+                </h3>
+                <hr class="border-slate-800 mb-3">
+                <div id="move-log" class="overflow-y-auto h-[400px] pr-2 text-sm text-slate-400 font-mono space-y-1">
+                    <div class="text-slate-500 italic text-xs">Game started. Waiting for the first move...</div>
+                </div>
+            </div>
+
+            <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 text-xs flex justify-between">
+                <div>
+                    <span class="text-white font-bold">Player 1:</span> White (You)
+                </div>
+                <div>
+                    <span class="text-amber-400 font-bold">Player 2:</span> <span id="opponent-name">Black (BOT AI)</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="text-center text-xs text-slate-500">
+        Click your piece to see valid move squares. Click a highlighted square to move there.
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playMoveSound(capture = false) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(capture ? 180 : 300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        const piecesSymbols = {
+            'w_p': '♙', 'w_r': '♖', 'w_n': '♘', 'w_b': '♗', 'w_q': '♕', 'w_k': '♔',
+            'b_p': '♟', 'b_r': '♜', 'b_n': '♞', 'b_b': '♝', 'b_q': '♛', 'b_k': '♚'
+        };
+
+        let initialBoard = [
+            ['b_r', 'b_n', 'b_b', 'b_q', 'b_k', 'b_b', 'b_n', 'b_r'],
+            ['b_p', 'b_p', 'b_p', 'b_p', 'b_p', 'b_p', 'b_p', 'b_p'],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['w_p', 'w_p', 'w_p', 'w_p', 'w_p', 'w_p', 'w_p', 'w_p'],
+            ['w_r', 'w_n', 'w_b', 'w_q', 'w_k', 'w_b', 'w_n', 'w_r']
+        ];
+
+        let boardState = JSON.parse(JSON.stringify(initialBoard));
+        let currentTurn = 'w'; 
+        let selectedSquare = null;
+        let validMoves = [];
+        let moveCount = 1;
+        let isBotThinking = false;
+        let gameOver = false;
+
+        const boardEl = document.getElementById('board');
+
+        function findKing(color) {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (boardState[r][c] === color + '_k') {
+                        return { r, c };
+                    }
+                }
+            }
+            return null;
+        }
+
+        function isSquareAttacked(r, c, byColor) {
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    const piece = boardState[i][j];
+                    if (piece && piece.startsWith(byColor)) {
+                        const moves = calculateRawMoves(i, j, piece);
+                        if (moves.some(m => m.r === r && m.c === c)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function isKingInCheck(color) {
+            const kingPos = findKing(color);
+            if (!kingPos) return false;
+            const enemyColor = color === 'w' ? 'b' : 'w';
+            return isSquareAttacked(kingPos.r, kingPos.c, enemyColor);
+        }
+
+        function calculateRawMoves(r, c, piece) {
+            let moves = [];
+            const type = piece.split('_')[1];
+            const color = piece.split('_')[0];
+            const enemyColor = color === 'w' ? 'b' : 'w';
+
+            if (type === 'p') { 
+                const dir = color === 'w' ? -1 : 1;
+                const startRow = color === 'w' ? 6 : 1;
+
+                if (r + dir >= 0 && r + dir < 8 && !boardState[r + dir][c]) {
+                    moves.push({ r: r + dir, c });
+                    if (r === startRow && !boardState[r + dir * 2][c]) {
+                        moves.push({ r: r + dir * 2, c });
+                    }
+                }
+                [-1, 1].forEach(dc => {
+                    const nr = r + dir, nc = c + dc;
+                    if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+                        if (boardState[nr][nc] && boardState[nr][nc].startsWith(enemyColor)) {
+                            moves.push({ r: nr, c: nc });
+                        }
+                    }
+                });
+            }
+            else if (type === 'r') { 
+                traverseDirections(r, c, [[-1,0], [1,0], [0,-1], [0,1]], color, moves);
+            }
+            else if (type === 'b') { 
+                traverseDirections(r, c, [[-1,-1], [-1,1], [1,-1], [1,1]], color, moves);
+            }
+            else if (type === 'q') { 
+                traverseDirections(r, c, [[-1,0], [1,0], [0,-1], [0,1], [-1,-1], [-1,1], [1,-1], [1,1]], color, moves);
+            }
+            else if (type === 'k') { 
+                const directions = [[-1,0], [1,0], [0,-1], [0,1], [-1,-1], [-1,1], [1,-1], [1,1]];
+                for (let d of directions) {
+                    const nr = r + d[0], nc = c + d[1];
+                    if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+                        if (!boardState[nr][nc] || !boardState[nr][nc].startsWith(color)) moves.push({ r: nr, c: nc });
+                    }
+                }
+            }
+            else if (type === 'n') { 
+                const knightOffsets = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,-2], [1,2], [2,-1], [2,1]];
+                for (let o of knightOffsets) {
+                    const nr = r + o[0], nc = c + o[1];
+                    if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+                        if (!boardState[nr][nc] || !boardState[nr][nc].startsWith(color)) moves.push({ r: nr, c: nc });
+                    }
+                }
+            }
+            return moves;
+        }
+
+        function calculateValidMoves(r, c, piece) {
+            const rawMoves = calculateRawMoves(r, c, piece);
+            const color = piece.split('_')[0];
+            const legalMoves = [];
+
+            for (let move of rawMoves) {
+                const backup = boardState[move.r][move.c];
+                const movingPiece = boardState[r][c];
+
+                boardState[move.r][move.c] = movingPiece;
+                boardState[r][c] = '';
+
+                const inCheck = isKingInCheck(color);
+
+                boardState[r][c] = movingPiece;
+                boardState[move.r][move.c] = backup;
+
+                if (!inCheck) {
+                    legalMoves.push(move);
+                }
+            }
+            return legalMoves;
+        }
+
+        function traverseDirections(r, c, directions, color, moves) {
+            for (let d of directions) {
+                let nr = r + d[0], nc = c + d[1];
+                while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+                    if (!boardState[nr][nc]) {
+                        moves.push({ r: nr, c: nc });
+                    } else {
+                        if (!boardState[nr][nc].startsWith(color)) moves.push({ r: nr, c: nc });
+                        break;
+                    }
+                    nr += d[0]; nc += d[1];
+                }
+            }
+        }
+
+        function getAllLegalMoves(color) {
+            let allMoves = [];
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = boardState[r][c];
+                    if (piece && piece.startsWith(color)) {
+                        const moves = calculateValidMoves(r, c, piece);
+                        moves.forEach(m => {
+                            allMoves.push({ fromR: r, fromC: c, toR: m.r, toC: m.c });
+                        });
+                    }
+                }
+            }
+            return allMoves;
+        }
+
+        function isCheckmate(color) {
+            if (!isKingInCheck(color)) return false;
+            return getAllLegalMoves(color).length === 0;
+        }
+
+        function isStalemate(color) {
+            if (isKingInCheck(color)) return false;
+            return getAllLegalMoves(color).length === 0;
+        }
+
+        function executeMove(fromR, fromC, toR, toC) {
+            if (gameOver) return;
+
+            const piece = boardState[fromR][fromC];
+            const targetPiece = boardState[toR][toC];
+            const isCapture = targetPiece !== '';
+
+            boardState[toR][toC] = piece;
+            boardState[fromR][fromC] = '';
+
+            // Promotion
+            if (piece === 'w_p' && toR === 0) boardState[toR][toC] = 'w_q';
+            if (piece === 'b_p' && toR === 7) boardState[toR][toC] = 'b_q';
+
+            playMoveSound(isCapture);
+            logMove(piece, fromR, fromC, toR, toC, isCapture);
+
+            currentTurn = currentTurn === 'w' ? 'b' : 'w';
+            updateTurnIndicator();
+
+            selectedSquare = null;
+            validMoves = [];
+            createBoardVisual();
+
+            // Check game end
+            if (isCheckmate(currentTurn)) {
+                gameOver = true;
+                setTimeout(() => {
+                    alert(`CHECKMATE! ${currentTurn === 'w' ? 'BLACK' : 'WHITE'} WINS!`);
+                }, 100);
+                return;
+            }
+            if (isStalemate(currentTurn)) {
+                gameOver = true;
+                setTimeout(() => {
+                    alert("STALEMATE! The game is a draw.");
+                }, 100);
+                return;
+            }
+
+            // Bot move
+            const mode = document.getElementById('game-mode').value;
+            if (mode === 'bot' && currentTurn === 'b') {
+                isBotThinking = true;
+                showThinkingIndicator(true);
+                setTimeout(makeComputerMove, 50);
+            }
+        }
+
+        // ========== STRONG BOT ENGINE (Minimax + Alpha-Beta + PST + Quiescence) ==========
+        const pieceValue = { 'p': 100, 'n': 320, 'b': 330, 'r': 500, 'q': 900, 'k': 20000 };
+
+        // Piece-Square Tables (row 0 = rank 8 / Black side, matching boardState orientation)
+        const PST = {
+            p: [
+                0,  0,  0,  0,  0,  0,  0,  0,
+               50, 50, 50, 50, 50, 50, 50, 50,
+               10, 10, 20, 30, 30, 20, 10, 10,
+                5,  5, 10, 25, 25, 10,  5,  5,
+                0,  0,  0, 20, 20,  0,  0,  0,
+                5, -5,-10,  0,  0,-10, -5,  5,
+                5, 10, 10,-20,-20, 10, 10,  5,
+                0,  0,  0,  0,  0,  0,  0,  0
+            ],
+            n: [
+              -50,-40,-30,-30,-30,-30,-40,-50,
+              -40,-20,  0,  0,  0,  0,-20,-40,
+              -30,  0, 10, 15, 15, 10,  0,-30,
+              -30,  5, 15, 20, 20, 15,  5,-30,
+              -30,  0, 15, 20, 20, 15,  0,-30,
+              -30,  5, 10, 15, 15, 10,  5,-30,
+              -40,-20,  0,  5,  5,  0,-20,-40,
+              -50,-40,-30,-30,-30,-30,-40,-50
+            ],
+            b: [
+              -20,-10,-10,-10,-10,-10,-10,-20,
+              -10,  0,  0,  0,  0,  0,  0,-10,
+              -10,  0,  5, 10, 10,  5,  0,-10,
+              -10,  5,  5, 10, 10,  5,  5,-10,
+              -10,  0, 10, 10, 10, 10,  0,-10,
+              -10, 10, 10, 10, 10, 10, 10,-10,
+              -10,  5,  0,  0,  0,  0,  5,-10,
+              -20,-10,-10,-10,-10,-10,-10,-20
+            ],
+            r: [
+                0,  0,  0,  0,  0,  0,  0,  0,
+                5, 10, 10, 10, 10, 10, 10,  5,
+               -5,  0,  0,  0,  0,  0,  0, -5,
+               -5,  0,  0,  0,  0,  0,  0, -5,
+               -5,  0,  0,  0,  0,  0,  0, -5,
+               -5,  0,  0,  0,  0,  0,  0, -5,
+               -5,  0,  0,  0,  0,  0,  0, -5,
+                0,  0,  0,  5,  5,  0,  0,  0
+            ],
+            q: [
+              -20,-10,-10, -5, -5,-10,-10,-20,
+              -10,  0,  0,  0,  0,  0,  0,-10,
+              -10,  0,  5,  5,  5,  5,  0,-10,
+               -5,  0,  5,  5,  5,  5,  0, -5,
+                0,  0,  5,  5,  5,  5,  0, -5,
+              -10,  5,  5,  5,  5,  5,  0,-10,
+              -10,  0,  5,  0,  0,  0,  0,-10,
+              -20,-10,-10, -5, -5,-10,-10,-20
+            ],
+            k: [
+              -30,-40,-40,-50,-50,-40,-40,-30,
+              -30,-40,-40,-50,-50,-40,-40,-30,
+              -30,-40,-40,-50,-50,-40,-40,-30,
+              -30,-40,-40,-50,-50,-40,-40,-30,
+              -20,-30,-30,-40,-40,-30,-30,-20,
+              -10,-20,-20,-20,-20,-20,-20,-10,
+               20, 20,  0,  0,  0,  0, 20, 20,
+               20, 30, 10,  0,  0, 10, 30, 20
+            ]
+        };
+
+        function pstValue(type, color, r, c) {
+            const table = PST[type];
+            // Tables are written from White's perspective (row0=rank8, far from White).
+            // For Black pieces, the table is mirrored vertically.
+            const idx = color === 'w' ? (r * 8 + c) : ((7 - r) * 8 + c);
+            return table[idx];
+        }
+
+        function countRawMobility(color) {
+            let count = 0;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = boardState[r][c];
+                    if (piece && piece.startsWith(color)) {
+                        count += calculateRawMoves(r, c, piece).length;
+                    }
+                }
+            }
+            return count;
+        }
+
+        function evaluateBoard() {
+            let score = 0;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = boardState[r][c];
+                    if (piece) {
+                        const color = piece[0];
+                        const type = piece.split('_')[1];
+                        const value = pieceValue[type] || 0;
+                        const pst = pstValue(type, color, r, c);
+                        const total = value + pst;
+                        score += color === 'w' ? total : -total;
+                    }
+                }
+            }
+
+            // Light mobility bonus to encourage active pieces & tactics
+            score += (countRawMobility('w') - countRawMobility('b')) * 2;
+
+            // Check bonus/penalty to reward aggressive tactics & king safety
+            if (isKingInCheck('w')) score -= 40;
+            if (isKingInCheck('b')) score += 40;
+
+            return score;
+        }
+
+        // Move ordering (simple MVV-LVA) so alpha-beta prunes far more effectively
+        function scoreMoveForOrdering(move) {
+            const attacker = boardState[move.fromR][move.fromC];
+            const target = boardState[move.toR][move.toC];
+            let s = 0;
+            if (target) {
+                const attackerType = attacker.split('_')[1];
+                const targetType = target.split('_')[1];
+                s += 1000 + (pieceValue[targetType] * 10 - pieceValue[attackerType]);
+            }
+            // Auto-promotion to queen is highly valued
+            if (attacker.endsWith('_p') && (move.toR === 0 || move.toR === 7)) {
+                s += 800;
+            }
+            return s;
+        }
+
+        function orderMoves(moves) {
+            moves.sort((a, b) => scoreMoveForOrdering(b) - scoreMoveForOrdering(a));
+            return moves;
+        }
+
+        const QUIESCENCE_DEPTH = 4;
+
+        // Quiescence search: only follows captures so the bot doesn't miss tactics at the search horizon
+        function quiescence(alpha, beta, isMaximizing, depth) {
+            const standPat = evaluateBoard();
+
+            if (depth <= 0) return standPat;
+
+            if (isMaximizing) {
+                if (standPat >= beta) return beta;
+                if (standPat > alpha) alpha = standPat;
+            } else {
+                if (standPat <= alpha) return alpha;
+                if (standPat < beta) beta = standPat;
+            }
+
+            const color = isMaximizing ? 'b' : 'w';
+            let moves = getAllLegalMoves(color).filter(m => boardState[m.toR][m.toC] !== '');
+            if (moves.length === 0) return standPat;
+            orderMoves(moves);
+
+            for (let move of moves) {
+                const backupFrom = boardState[move.fromR][move.fromC];
+                const backupTo = boardState[move.toR][move.toC];
+
+                boardState[move.toR][move.toC] = backupFrom;
+                boardState[move.fromR][move.fromC] = '';
+
+                const score = quiescence(alpha, beta, !isMaximizing, depth - 1);
+
+                boardState[move.fromR][move.fromC] = backupFrom;
+                boardState[move.toR][move.toC] = backupTo;
+
+                if (isMaximizing) {
+                    if (score > alpha) alpha = score;
+                    if (alpha >= beta) return beta;
+                } else {
+                    if (score < beta) beta = score;
+                    if (beta <= alpha) return alpha;
+                }
+            }
+            return isMaximizing ? alpha : beta;
+        }
+
+        function minimax(depth, isMaximizing, alpha = -Infinity, beta = Infinity) {
+            const color = isMaximizing ? 'b' : 'w';
+            const moves = getAllLegalMoves(color);
+
+            if (moves.length === 0) {
+                if (isKingInCheck(color)) {
+                    return isMaximizing ? -99999 - depth : 99999 + depth; // faster mate is better
+                }
+                return 0; // stalemate
+            }
+
+            if (depth === 0) {
+                return quiescence(alpha, beta, isMaximizing, QUIESCENCE_DEPTH);
+            }
+
+            orderMoves(moves);
+
+            if (isMaximizing) {
+                let maxEval = -Infinity;
+                for (let move of moves) {
+                    const backupFrom = boardState[move.fromR][move.fromC];
+                    const backupTo = boardState[move.toR][move.toC];
+
+                    boardState[move.toR][move.toC] = backupFrom;
+                    boardState[move.fromR][move.fromC] = '';
+
+                    const evalScore = minimax(depth - 1, false, alpha, beta);
+
+                    boardState[move.fromR][move.fromC] = backupFrom;
+                    boardState[move.toR][move.toC] = backupTo;
+
+                    maxEval = Math.max(maxEval, evalScore);
+                    alpha = Math.max(alpha, evalScore);
+                    if (beta <= alpha) break;
+                }
+                return maxEval;
+            } else {
+                let minEval = Infinity;
+                for (let move of moves) {
+                    const backupFrom = boardState[move.fromR][move.fromC];
+                    const backupTo = boardState[move.toR][move.toC];
+
+                    boardState[move.toR][move.toC] = backupFrom;
+                    boardState[move.fromR][move.fromC] = '';
+
+                    const evalScore = minimax(depth - 1, true, alpha, beta);
+
+                    boardState[move.fromR][move.fromC] = backupFrom;
+                    boardState[move.toR][move.toC] = backupTo;
+
+                    minEval = Math.min(minEval, evalScore);
+                    beta = Math.min(beta, evalScore);
+                    if (beta <= alpha) break;
+                }
+                return minEval;
+            }
+        }
+
+        const SEARCH_DEPTH = 4; // roughly 4-5 ply total + tactical quiescence
+
+        function showThinkingIndicator(show) {
+            const indicator = document.getElementById('turn-indicator');
+            if (show) {
+                indicator.textContent = 'BOT THINKING...';
+                indicator.className = 'px-3 py-0.5 rounded-md text-sm font-bold bg-amber-400 text-slate-950 shadow animate-pulse';
+            }
+        }
+
+        function makeComputerMove() {
+            if (gameOver) return;
+
+            let bestMoves = [];
+            let bestValue = -Infinity;
+            let alpha = -Infinity;
+            const beta = Infinity;
+            const allMoves = getAllLegalMoves('b');
+
+            if (allMoves.length === 0) {
+                isBotThinking = false;
+                return;
+            }
+
+            orderMoves(allMoves);
+
+            for (let move of allMoves) {
+                const backupFrom = boardState[move.fromR][move.fromC];
+                const backupTo = boardState[move.toR][move.toC];
+
+                boardState[move.toR][move.toC] = backupFrom;
+                boardState[move.fromR][move.fromC] = '';
+
+                const moveValue = minimax(SEARCH_DEPTH - 1, false, alpha, beta);
+
+                boardState[move.fromR][move.fromC] = backupFrom;
+                boardState[move.toR][move.toC] = backupTo;
+
+                if (moveValue > bestValue) {
+                    bestValue = moveValue;
+                    bestMoves = [move];
+                    alpha = Math.max(alpha, bestValue);
+                } else if (moveValue === bestValue) {
+                    bestMoves.push(move);
+                }
+            }
+
+            // A little variety when several moves are equally best
+            const bestMove = bestMoves[Math.floor(Math.random() * bestMoves.length)];
+
+            if (bestMove) {
+                executeMove(bestMove.fromR, bestMove.fromC, bestMove.toR, bestMove.toC);
+            }
+            isBotThinking = false;
+        }
+
+        function createBoardVisual() {
+            boardEl.innerHTML = '';
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const square = document.createElement('div');
+                    square.className = `flex items-center justify-center relative select-none transition-all duration-200 ${(r + c) % 2 === 0 ? 'square-light' : 'square-dark'}`;
+                    square.dataset.row = r;
+                    square.dataset.col = c;
+                    
+                    const piece = boardState[r][c];
+                    if (piece) {
+                        const pieceEl = document.createElement('div');
+                        pieceEl.className = `piece flex items-center justify-center ${piece.startsWith('w') ? 'text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.6)]' : 'text-slate-950'}`;
+                        pieceEl.innerHTML = piecesSymbols[piece];
+                        square.appendChild(pieceEl);
+                    }
+
+                    square.addEventListener('click', () => handleSquareClick(r, c));
+                    boardEl.appendChild(square);
+                }
+            }
+
+            // Highlight king in check
+            const currentColor = currentTurn;
+            if (isKingInCheck(currentColor)) {
+                const kingPos = findKing(currentColor);
+                if (kingPos) {
+                    const kingSquare = boardEl.children[kingPos.r * 8 + kingPos.c];
+                    kingSquare.classList.add('square-in-check');
+                }
+            }
+        }
+
+        function handleSquareClick(r, c) {
+            if (gameOver) return;
+            const mode = document.getElementById('game-mode').value;
+            if (mode === 'bot' && currentTurn === 'b' || isBotThinking) return;
+
+            const piece = boardState[r][c];
+
+            if (selectedSquare) {
+                const isMoveValid = validMoves.some(m => m.r === r && m.c === c);
+                if (isMoveValid) {
+                    executeMove(selectedSquare.r, selectedSquare.c, r, c);
+                    return;
+                } else {
+                    selectedSquare = null;
+                    validMoves = [];
+                }
+            }
+
+            if (piece && piece.startsWith(currentTurn)) {
+                selectedSquare = { r, c };
+                validMoves = calculateValidMoves(r, c, piece);
+                highlightSquares();
+            } else {
+                clearHighlights();
+            }
+        }
+
+        function updateTurnIndicator() {
+            const indicator = document.getElementById('turn-indicator');
+            indicator.textContent = currentTurn === 'w' ? 'WHITE' : 'BLACK';
+            indicator.className = currentTurn === 'w' 
+                ? 'px-3 py-0.5 rounded-md text-sm font-bold bg-white text-slate-950 shadow' 
+                : 'px-3 py-0.5 rounded-md text-sm font-bold bg-slate-950 text-white shadow';
+        }
+
+        function highlightSquares() {
+            clearHighlights();
+            if (selectedSquare) {
+                const selectedEl = boardEl.children[selectedSquare.r * 8 + selectedSquare.c];
+                selectedEl.classList.add('square-selected');
+            }
+            validMoves.forEach(m => {
+                const el = boardEl.children[m.r * 8 + m.c];
+                if (boardState[m.r][m.c]) {
+                    el.classList.add('square-valid-capture');
+                } else {
+                    el.classList.add('square-valid-move');
+                }
+            });
+        }
+
+        function clearHighlights() {
+            for (let child of boardEl.children) {
+                child.classList.remove('square-selected', 'square-valid-move', 'square-valid-capture', 'square-in-check');
+            }
+        }
+
+        function logMove(piece, fromR, fromC, toR, toC, isCapture) {
+            const colsName = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+            const rowsName = ['8', '7', '6', '5', '4', '3', '2', '1'];
+            
+            const pieceType = piece.split('_')[1].toUpperCase();
+            const side = piece.startsWith('w') ? 'White' : 'Black';
+            const action = isCapture ? 'x' : '→';
+            
+            const logText = `${moveCount}. [${side}] ${pieceType} ${colsName[fromC]}${rowsName[fromR]} ${action} ${colsName[toC]}${rowsName[toR]}`;
+            
+            const logContainer = document.getElementById('move-log');
+            if(moveCount === 1) logContainer.innerHTML = ''; 
+            
+            const entry = document.createElement('div');
+            entry.className = side === 'White' ? 'text-amber-100' : 'text-slate-400';
+            entry.innerText = logText;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            moveCount++;
+        }
+
+        function resetGame() {
+            boardState = JSON.parse(JSON.stringify(initialBoard));
+            currentTurn = 'w';
+            selectedSquare = null;
+            validMoves = [];
+            moveCount = 1;
+            isBotThinking = false;
+            gameOver = false;
+            
+            const mode = document.getElementById('game-mode').value;
+            document.getElementById('opponent-name').textContent = mode === 'bot' ? 'Black (BOT AI)' : 'Black (Player 2)';
+            
+            updateTurnIndicator();
+            document.getElementById('move-log').innerHTML = '<div class="text-slate-500 italic text-xs">Game reset. Waiting for a move...</div>';
+            
+            createBoardVisual();
+        }
+
+        window.onload = () => {
+            createBoardVisual();
+        };
+    </script>
+</body>
+</html>
