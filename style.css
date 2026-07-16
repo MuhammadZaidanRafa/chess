@@ -4,18 +4,18 @@
    CASINO THEME — DESIGN TOKENS
    ============================================ */
 :root {
-    --felt-dark: #06251c;
-    --felt-mid: #0d3d2c;
-    --felt-light: #114a36;
+    --felt-dark: #082a20;
+    --felt-mid: #114431;
+    --felt-light: #185940;
     --gold: #d4af37;
-    --gold-light: #f3d675;
+    --gold-light: #f6dd8c;
     --gold-dark: #9c7a1e;
     --ivory: #f6ecd1;
     --wine: #7a1f2b;
-    --ruby: #e0334f;
-    --emerald: #1f8a5f;
-    --board-light: #f3e6c4;
-    --board-dark: #0f4a37;
+    --ruby: #ef4361;
+    --emerald: #22a86e;
+    --board-light: #f6ead0;
+    --board-dark: #135840;
     --board-border: #d4af37;
 }
 
@@ -29,7 +29,7 @@ html {
 
 body {
     background:
-        radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.10) 0%, transparent 45%),
         radial-gradient(ellipse at center, var(--felt-light) 0%, var(--felt-mid) 45%, var(--felt-dark) 100%);
     background-attachment: fixed;
     font-family: 'Poppins', sans-serif;
@@ -48,8 +48,8 @@ body::before {
     z-index: 0;
     opacity: 0.5;
     background-image:
-        radial-gradient(rgba(212, 175, 55, 0.035) 1px, transparent 1px),
-        radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        radial-gradient(rgba(212, 175, 55, 0.04) 1px, transparent 1px),
+        radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
     background-size: 26px 26px, 14px 14px;
     background-position: 0 0, 7px 7px;
 }
@@ -66,6 +66,7 @@ body > * {
 
 /* ============================================
    CHESS BOARD — GOLD-RIMMED CASINO TABLE
+   WITH OVERHEAD SPOTLIGHT LIGHTING
    ============================================ */
 .chess-board {
     display: grid;
@@ -81,25 +82,42 @@ body > * {
     box-shadow:
         0 25px 50px -12px rgba(0, 0, 0, 0.75),
         0 0 0 3px rgba(0, 0, 0, 0.35) inset,
-        0 0 40px rgba(212, 175, 55, 0.15);
+        0 0 45px rgba(212, 175, 55, 0.2);
     overflow: hidden;
     touch-action: manipulation;
+    isolation: isolate;
+}
+
+/* Soft overhead spotlight shining down on the table, like a casino pit light */
+.chess-board::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+    background: radial-gradient(
+        ellipse 80% 55% at 50% 8%,
+        rgba(255, 249, 220, 0.20) 0%,
+        rgba(255, 249, 220, 0.08) 35%,
+        transparent 70%
+    );
+    mix-blend-mode: soft-light;
 }
 
 .square-light {
     background-color: var(--board-light);
-    background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.25), rgba(0, 0, 0, 0.03));
+    background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.35), rgba(0, 0, 0, 0.04));
 }
 
 .square-dark {
     background-color: var(--board-dark);
-    background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.2));
+    background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.22));
 }
 
 @media (hover: hover) and (pointer: fine) {
     .square-light:hover,
     .square-dark:hover {
-        filter: brightness(1.12);
+        filter: brightness(1.15);
     }
 }
 
@@ -116,21 +134,21 @@ body > * {
     max-width: 26px;
     max-height: 26px;
     background:
-        radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.65), transparent 40%),
+        radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.7), transparent 40%),
         radial-gradient(circle, var(--emerald) 55%, var(--gold-dark) 100%);
-    border: 2px solid rgba(255, 255, 255, 0.35);
+    border: 2px solid rgba(255, 255, 255, 0.4);
     border-radius: 50%;
     position: absolute;
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.45);
 }
 
 .square-valid-capture {
-    box-shadow: inset 0 0 0 4px var(--ruby), inset 0 0 16px rgba(224, 51, 79, 0.55);
+    box-shadow: inset 0 0 0 4px var(--ruby), inset 0 0 16px rgba(239, 67, 97, 0.55);
     animation: rubyPulse 1s ease-in-out infinite;
 }
 
 .square-in-check {
-    box-shadow: inset 0 0 0 5px var(--ruby), inset 0 0 26px rgba(224, 51, 79, 0.85);
+    box-shadow: inset 0 0 0 5px var(--ruby), inset 0 0 26px rgba(239, 67, 97, 0.85);
     animation: checkPulse 0.85s ease-in-out infinite;
 }
 
@@ -140,17 +158,17 @@ body > * {
 }
 
 @keyframes rubyPulse {
-    0%, 100% { box-shadow: inset 0 0 0 4px var(--ruby), inset 0 0 10px rgba(224, 51, 79, 0.4); }
-    50%      { box-shadow: inset 0 0 0 4px var(--ruby), inset 0 0 20px rgba(224, 51, 79, 0.75); }
+    0%, 100% { box-shadow: inset 0 0 0 4px var(--ruby), inset 0 0 10px rgba(239, 67, 97, 0.4); }
+    50%      { box-shadow: inset 0 0 0 4px var(--ruby), inset 0 0 20px rgba(239, 67, 97, 0.75); }
 }
 
 @keyframes checkPulse {
-    0%, 100% { box-shadow: inset 0 0 0 5px var(--ruby), inset 0 0 18px rgba(224, 51, 79, 0.6); }
-    50%      { box-shadow: inset 0 0 0 5px var(--ruby), inset 0 0 34px rgba(224, 51, 79, 1); }
+    0%, 100% { box-shadow: inset 0 0 0 5px var(--ruby), inset 0 0 18px rgba(239, 67, 97, 0.6); }
+    50%      { box-shadow: inset 0 0 0 5px var(--ruby), inset 0 0 34px rgba(239, 67, 97, 1); }
 }
 
 /* ============================================
-   PIECES — FLUID SCALING FOR ALL SCREEN SIZES
+   PIECES — FLUID SCALING + PROPER LIGHTING/CONTRAST
    ============================================ */
 .piece {
     font-size: clamp(1.5rem, 6.5vw, 3.5rem);
@@ -162,10 +180,30 @@ body > * {
     will-change: transform;
 }
 
+/* White pieces: crisp with a warm rim-light + deep drop shadow for depth on any square */
+.piece.text-white {
+    color: #fffdf5;
+    text-shadow:
+        0 0 6px rgba(255, 249, 220, 0.55),
+        0 2px 2px rgba(0, 0, 0, 0.85),
+        0 4px 6px rgba(0, 0, 0, 0.6);
+}
+
+/* Black pieces: solid glyphs get a soft light halo so they never vanish on dark squares */
+.piece.text-slate-950 {
+    color: #12100d;
+    text-shadow:
+        -1px 0 0 rgba(255, 236, 179, 0.55),
+         1px 0 0 rgba(255, 236, 179, 0.55),
+         0 -1px 0 rgba(255, 236, 179, 0.55),
+         0  1px 0 rgba(255, 236, 179, 0.55),
+         0 3px 5px rgba(0, 0, 0, 0.7);
+}
+
 @media (hover: hover) and (pointer: fine) {
     .piece:hover {
         transform: scale(1.1);
-        filter: brightness(1.15);
+        filter: brightness(1.2) drop-shadow(0 0 8px rgba(255, 221, 130, 0.5));
     }
 }
 
